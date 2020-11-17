@@ -2,3 +2,11 @@
 #test
 
 dfgd
+
+# COMMAND ----------
+
+# MAGIC %sql
+# MAGIC show tables;
+
+# COMMAND ----------
+
