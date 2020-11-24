@@ -27,9 +27,7 @@
 # COMMAND ----------
 
 # DBTITLE 1,Look at the Dataset
-# MAGIC %sql
-# MAGIC 
-# MAGIC select * from boston_house_price
+display(spark.sql(f"select * from {table_name}"))
 
 # COMMAND ----------
 
@@ -41,7 +39,8 @@
 
 # COMMAND ----------
 
-experiment_id =  '8805954';
+experiment_id = 8805954
+# get experiment ID from Experiment UI you created
 
 displayHTML(f"<h2>Make sure you can see your experiment on <a href='#mlflow/experiments/{experiment_id}'>#mlflow/experiments/{experiment_id}</a></h2>")
 
@@ -52,8 +51,6 @@ displayHTML(f"<h2>Make sure you can see your experiment on <a href='#mlflow/expe
 # MAGIC ### Define some global variables
 
 # COMMAND ----------
-
-TABLE_NAME = 'boston_house_price'
 
 FEATURES = [
   'CRIM', 'ZN', 'INDUS', 'CHAS', 'NOX', 'RM', 'AGE', 'DIS', 'RAD', 'TAX', 'PTRATIO', 'B', 'LSTAT'
@@ -78,8 +75,8 @@ params = {
 
 run_name = "Elastic Net"
 
-df_train, df_test, version = prep_data(TABLE_NAME)
-run_info, model_stats = run_algo(df_train, df_test, version, FEATURES, algo, params, experiment_id, run_name=run_name, do_shap=True)
+df_train, df_test, version = prep_data(table_name)
+run_info, model_stats = run_algo(df_train, df_test, table_name, version, FEATURES, algo, params, experiment_id, run_name=run_name, do_shap=True)
 
 # COMMAND ----------
 
@@ -98,8 +95,8 @@ params = {
 }
 
 run_name = "XGBoost"
-df_train, df_test, version = prep_data(TABLE_NAME)
-run_info, model_stats = run_algo(df_train, df_test, version, FEATURES, algo, params, experiment_id, run_name=run_name, do_shap=True)
+df_train, df_test, version = prep_data(table_name)
+run_info, model_stats = run_algo(df_train, df_test, table_name, version, FEATURES, algo, params, experiment_id, run_name=run_name, do_shap=True)
 
 # COMMAND ----------
 
@@ -126,9 +123,9 @@ spark_trials = SparkTrials()
 hyperopt_algo = tpe.suggest
 
 n_components_range = np.arange(4, 12, 1, dtype=int)
-max_depth_range = np.arange(1, 4, 1, dtype=int)
+max_depth_range = np.arange(3, 8, 1, dtype=int)
 learning_rate_range = np.arange(0.01, 0.15, 0.01)
-n_estimators_range = np.arange(100, 500, 1, dtype=int)
+n_estimators_range = np.arange(500, 2000, 1, dtype=int)
 
 params = {
   'pca_params': {
@@ -148,8 +145,8 @@ params = {
 def rmse(y, pred): 
   return np.sqrt(mean_squared_error(y, pred))
 
-def fn(params, df_train, df_test, version, features, algo, experiment_id, run_name):
-  run_info, model_stats = run_algo(df_train, df_test, version, features, algo, params, experiment_id=experiment_id, run_name=run_name, do_shap=True, nested=True)
+def fn(params, df_train, df_test, table_name, version, features, algo, experiment_id, run_name):
+  run_info, model_stats = run_algo(df_train, df_test, table_name, version, features, algo, params, experiment_id=experiment_id, run_name=run_name, do_shap=True, nested=True)
   
   loss = rmse(model_stats['df']['PRICE'].to_numpy(), model_stats['y_pred'])
   return {'loss': loss, 'status': STATUS_OK}
@@ -157,10 +154,10 @@ def fn(params, df_train, df_test, version, features, algo, experiment_id, run_na
 run_name = "HyperOpt - XGB"
 
 algo = xgb.XGBRegressor
-df_train, df_test, version = prep_data(TABLE_NAME)
-fmin_objective = partial(fn, df_train=df_train, df_test=df_test, version=version, features=FEATURES, algo=algo, experiment_id=experiment_id, run_name=run_name)
+df_train, df_test, version = prep_data(table_name)
+fmin_objective = partial(fn, df_train=df_train, df_test=df_test, table_name=table_name, version=version, features=FEATURES, algo=algo, experiment_id=experiment_id, run_name=run_name)
 
-best_param = fmin(fn=fmin_objective, space=params, algo=hyperopt_algo, max_evals=8, trials=spark_trials) 
+best_param = fmin(fn=fmin_objective, space=params, algo=hyperopt_algo, max_evals=16, trials=spark_trials) 
 
 
 # COMMAND ----------
@@ -176,3 +173,21 @@ print(f"n_components: {n_components_range[best_param['n_components']]}")
 # MAGIC %md
 # MAGIC 
 # MAGIC Now you have found the best parameters for your XGBoost model, we can deploy it using the next [notebook]($./03_deployment).
+
+# COMMAND ----------
+
+import mlflow
+
+
+# COMMAND ----------
+
+df = mlflow.search_runs([experiment_id], order_by=["metrics.m DESC"])
+
+
+# COMMAND ----------
+
+
+display(df)
+
+# COMMAND ----------
+

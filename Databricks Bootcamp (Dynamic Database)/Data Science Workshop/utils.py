@@ -1,4 +1,8 @@
 # Databricks notebook source
+# MAGIC %pip install plotly==4.5.1 shap
+
+# COMMAND ----------
+
 import numpy as np
 import shap
 import pandas as pd
@@ -22,6 +26,17 @@ from sklearn.decomposition import PCA
 import xgboost as xgb
 
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
+
+# COMMAND ----------
+
+username = dbutils.notebook.entry_point.getDbutils().notebook().getContext().tags().apply('user')
+username_replaced = username.replace(".", "_").replace("@","_")
+base_table_path = "dbfs:/home/"+username+"/"
+table_location = base_table_path + 'boston_house_price'
+table_name = username_replaced + ".boston_house_price"
+
+prediction_table_location = base_table_path + 'boston_house_price_prediction'
+prediction_table_name = username_replaced + ".boston_house_price_prediction"
 
 # COMMAND ----------
 
@@ -113,7 +128,7 @@ def prep_data(table_name):
   return df_train, df_test, version
 
 
-def run_algo(df_train, df_test, version, features, algo, params, experiment_id, run_name=None, do_shap=False, verbose=True, nested=False):
+def run_algo(df_train, df_test, table_name, version, features, algo, params, experiment_id, run_name=None, do_shap=False, verbose=True, nested=False):
   _print = print if verbose else lambda x: x
   
   pca_params = params['pca_params']
@@ -143,6 +158,7 @@ def run_algo(df_train, df_test, version, features, algo, params, experiment_id, 
     mlflow.log_params(pca_params)
     mlflow.log_params(algo_params)
     mlflow.log_params({'algo_name': get_algo_name(algo)})
+    mlflow.log_params({'table_name': table_name})
     mlflow.log_params({'table_version': version})
     
     mlflow.log_metrics(metrics_train)

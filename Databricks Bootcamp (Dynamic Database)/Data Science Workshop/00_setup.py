@@ -27,21 +27,25 @@ df = load_data()
 
 # COMMAND ----------
 
-# MAGIC %fs rm -r /demo/ML/boston_house_price
+username = dbutils.notebook.entry_point.getDbutils().notebook().getContext().tags().apply('user')
+username_replaced = username.replace(".", "_").replace("@","_")
+base_table_path = "dbfs:/home/"+username+"/"
+table_location = base_table_path + 'boston_house_price'
+table_name = username_replaced + ".boston_house_price"
 
 # COMMAND ----------
 
-table_name = '/demo2/ML/boston_house_price'
+  dbutils.fs.rm(table_location, recurse=True)
 
 # COMMAND ----------
 
-spark.sql("DROP TABLE IF EXISTS boston_house_price")
+spark.sql(f"DROP TABLE IF EXISTS {table_name}")
 
 # COMMAND ----------
 
-df.write.format('delta').save(table_name, mode='overwrite')
+df.write.format('delta').save(table_location, mode='overwrite')
 
-spark.sql(f"CREATE TABLE boston_house_price USING DELTA LOCATION '{table_name}'")
+spark.sql(f"CREATE TABLE {table_name} USING DELTA LOCATION '{table_location}'")
 
 # COMMAND ----------
 
